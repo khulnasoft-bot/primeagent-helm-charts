@@ -34,6 +34,9 @@ jobs:
       - name: Set up chart-testing
         uses: helm/chart-testing-action@v2.6.1
 
+      - name: Build chart dependencies
+        run: helm dependency build charts/primeagent-ide
+
       - name: Run chart-testing (list-changed)
         id: list-changed
         run: |
