@@ -74,9 +74,9 @@ primeagent:
       requests:
         cpu: 0.5
         memory: 1Gi
-      # limits:
-      #   cpu: 0.5
-      #   memory: 1Gi
+      limits:
+        cpu: 1.0
+        memory: 2Gi
     probe:
       failureThreshold: 3
       periodSeconds: 10
@@ -134,10 +134,6 @@ primeagent:
         emptyDir: {}
       - name: tmp
         emptyDir: {}
-      - name: data
-        emptyDir: {}
-      - name: db
-        emptyDir: {}
 
     volumeMounts:
       - name: flows
@@ -146,17 +142,12 @@ primeagent:
       - name: tmp
         mountPath: /tmp
         readOnly: false
-      - name: data
-        mountPath: /app/data
-        readOnly: false
-      - name: db
-        mountPath: /app/db
-        readOnly: false
 
     sqlite:
       enabled: true
       volume:
         size: "1Gi"
+        mountPath: "/app/db"
         existingStorageClassName: "default"
         # If you want the chart to create storage classes, then don't set
         # existingStorageClassName name and provide configuration values
@@ -210,9 +201,9 @@ primeagent:
       requests:
         cpu: 0.3
         memory: 512Mi
-      # limits:
-      #   cpu: 0.3
-      #   memory: 512Mi
+      limits:
+        cpu: 0.6
+        memory: 1Gi
     probe:
       failureThreshold: 3
       periodSeconds: 10

@@ -53,17 +53,22 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.primeagent.backend.image.repository }}:{{ .Values.primeagent.backend.image.tag  | default .Values.primeagent.global.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.primeagent.backend.image.imagePullPolicy | default .Values.primeagent.global.image.imagePullPolicy }}
+          {{- if .Values.primeagent.backend.command }}
+          command:
+            {{- toYaml .Values.primeagent.backend.command | nindent 12 }}
+          {{- else }}
           command: ["/bin/bash", "-c"]
           args:
             - >
               set -e &&
-              if [ -n "$LF_CHART_EXTERNALDB_DRIVER" ]; then
-                echo "LF_CHART_EXTERNALDB_DRIVER is set, using external database at $LF_CHART_EXTERNALDB_HOST" &&
-                export PRIMEAGENT_DATABASE_URL="$LF_CHART_EXTERNALDB_DRIVER://$LF_CHART_EXTERNALDB_USER:$LF_CHART_EXTERNALDB_PASSWORD@$LF_CHART_EXTERNALDB_HOST:$LF_CHART_EXTERNALDB_PORT/$LF_CHART_EXTERNALDB_DATABASE"
+              if [ -n "$PA_CHART_EXTERNALDB_DRIVER" ]; then
+                echo "PA_CHART_EXTERNALDB_DRIVER is set, using external database at $PA_CHART_EXTERNALDB_HOST" &&
+                export PRIMEAGENT_DATABASE_URL="$PA_CHART_EXTERNALDB_DRIVER://$PA_CHART_EXTERNALDB_USER:$PA_CHART_EXTERNALDB_PASSWORD@$PA_CHART_EXTERNALDB_HOST:$PA_CHART_EXTERNALDB_PORT/$PA_CHART_EXTERNALDB_DATABASE"
               else
-                echo "LF_CHART_EXTERNALDB_DRIVER is not set, using SQLLite database"
+                echo "PA_CHART_EXTERNALDB_DRIVER is not set, using SQLLite database"
               fi &&
               primeagent run --host 0.0.0.0 --port {{ .Values.primeagent.backend.service.port }}
+          {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.primeagent.backend.service.port }}
@@ -77,7 +82,8 @@ spec:
             {{- end }}
             {{- if .Values.primeagent.backend.sqlite.enabled }}
             - name: data
-              mountPath: /data
+              mountPath: {{ .Values.primeagent.backend.sqlite.volume.mountPath | default "/app/db" }}
+              readOnly: false
             {{- end }}
             {{- with .Values.primeagent.backend.volumeMounts }}
             {{- toYaml . | nindent 12 }}
@@ -107,23 +113,23 @@ spec:
               value: "{{ .Values.primeagent.backend.numWorkers }}"
             {{- if .Values.primeagent.backend.sqlite.enabled }}
             - name: PRIMEAGENT_DATABASE_URL
-              value: "sqlite:////data/primeagent.db"
+              value: "sqlite://{{ .Values.primeagent.backend.sqlite.volume.mountPath | default "/app/db" }}/primeagent.db"
             {{- end }}
             {{- with .Values.primeagent.backend.env }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
             {{- if .Values.primeagent.backend.externalDatabase.enabled }}
-            - name: LF_CHART_EXTERNALDB_DRIVER
+            - name: PA_CHART_EXTERNALDB_DRIVER
             {{- toYaml .Values.primeagent.backend.externalDatabase.driver | nindent 14 }}
-            - name: LF_CHART_EXTERNALDB_HOST
+            - name: PA_CHART_EXTERNALDB_HOST
             {{- toYaml .Values.primeagent.backend.externalDatabase.host | nindent 14 }}
-            - name: LF_CHART_EXTERNALDB_PORT
+            - name: PA_CHART_EXTERNALDB_PORT
             {{- toYaml .Values.primeagent.backend.externalDatabase.port | nindent 14 }}
-            - name: LF_CHART_EXTERNALDB_DATABASE
+            - name: PA_CHART_EXTERNALDB_DATABASE
             {{- toYaml .Values.primeagent.backend.externalDatabase.database | nindent 14 }}
-            - name: LF_CHART_EXTERNALDB_USER
+            - name: PA_CHART_EXTERNALDB_USER
             {{- toYaml .Values.primeagent.backend.externalDatabase.user | nindent 14 }}
-            - name: LF_CHART_EXTERNALDB_PASSWORD
+            - name: PA_CHART_EXTERNALDB_PASSWORD
             {{- toYaml .Values.primeagent.backend.externalDatabase.password | nindent 14 }}
             {{- end }}
             {{- if and (hasKey .Values.primeagent.backend "autoLogin") (eq .Values.primeagent.backend.autoLogin false) }}
@@ -152,22 +158,16 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-  {{- if .Values.primeagent.backend.sqlite.enabled }}
-  volumeClaimTemplates:
-  - metadata:
-      name: data
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: {{ .Values.primeagent.backend.sqlite.volume.size }}
-      {{- if .Values.primeagent.backend.sqlite.volume.existingStorageClassName }}
-      {{- if ne .Values.primeagent.backend.sqlite.volume.existingStorageClassName "default"}}
-      storageClassName: {{ .Values.primeagent.backend.sqlite.volume.existingStorageClassName }}
-      {{- else }}
+      {{- if .Values.primeagent.backend.sqlite.enabled }}
+      volumeClaimTemplates:
+      - metadata:
+          name: data
+        spec:
+          accessModes: [ "ReadWriteOnce" ]
+          resources:
+            requests:
+              storage: {{ .Values.primeagent.backend.sqlite.volume.size }}
+          {{- if and .Values.primeagent.backend.sqlite.volume.existingStorageClassName (ne .Values.primeagent.backend.sqlite.volume.existingStorageClassName "default") }}
+          storageClassName: {{ .Values.primeagent.backend.sqlite.volume.existingStorageClassName }}
+          {{- end }}
       {{- end }}
-      {{- else }}
-      storageClassName: "{{ template "primeagent.fullname" . }}-sqlite"
-      {{- end }}
-      
-  {{- end }}

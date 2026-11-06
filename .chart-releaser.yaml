@@ -1,0 +1,7 @@
+config:
+  charts_dir: charts
+  chart_repos:
+    - primeagent-ide
+    - primeagent-runtime
+  packages_dir: .cr-release-packages
+  index: charts/index.yaml
